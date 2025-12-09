@@ -7,10 +7,12 @@ import com.meta.spatial.core.Pose
 import com.meta.spatial.core.Quaternion
 import com.meta.spatial.core.Query
 import com.meta.spatial.core.SystemBase
+import com.meta.spatial.core.Vector2
 import com.meta.spatial.core.Vector3
 import com.meta.spatial.runtime.ButtonBits
 import com.meta.spatial.runtime.HitInfo
 import com.meta.spatial.runtime.InputListener
+import com.meta.spatial.runtime.PanelDimensionsOverrides
 import com.meta.spatial.runtime.PanelSceneObject
 import com.meta.spatial.runtime.PanelShapeType
 import com.meta.spatial.runtime.SceneObject
@@ -69,6 +71,89 @@ class MetaGrabbableSystem() : SystemBase() {
         return getScene().getViewerPose()
     }
 
+    /**
+     * Converts a world-space point to local panel coordinates.
+     */
+    private fun worldToLocal(hitPoint: Vector3, entityTransform: Pose): Vector3 {
+        return entityTransform.inverse() * hitPoint
+    }
+
+    /**
+     * Converts normalized coordinates (0-1) to local panel coordinates.
+     *
+     * @param normalizedX The normalized X coordinate (0 = left, 1 = right)
+     * @param normalizedY The normalized Y coordinate (0 = bottom, 1 = top)
+     * @param panelWidth The panel width in meters
+     * @param panelHeight The panel height in meters
+     * @return The local coordinate with (0,0) at center
+     */
+    private fun normalizedToLocal(
+        normalizedX: Float,
+        normalizedY: Float,
+        panelWidth: Float,
+        panelHeight: Float
+    ): Pair<Float, Float> {
+        // Convert from (0,0)=bottom-left, (1,1)=top-right to centered coordinates
+        val localX = (normalizedX - 0.5f) * panelWidth
+        val localY = (normalizedY - 0.5f) * panelHeight
+        return Pair(localX, localY)
+    }
+
+    /**
+     * Gets the panel dimensions from the PanelSceneObject's config.
+     * Returns null if dimensions cannot be determined.
+     */
+    private fun getPanelDimensions(entity: Entity, sceneObject: SceneObject?): Pair<Float, Float>? {
+        if (sceneObject is PanelSceneObject) {
+            val dimensions: Vector2? = PanelDimensionsOverrides.get(entity)
+            if (dimensions != null) {
+                return Pair(dimensions.x, dimensions.y)
+            }
+            return Pair(1f, 1f)
+        }
+        return null
+    }
+
+    /**
+     * Checks if a hit point is within the grab region defined in the entity's GrabComponent.
+     * The GrabComponent uses normalized coordinates (0-1) which are converted to local space.
+     */
+    private fun isHitInGrabRegion(hitInfo: HitInfo, entity: Entity, sceneObject: SceneObject?): Boolean {
+        val grabComponent = entity.tryGetComponent<GrabComponent>() ?: return true
+        val entityTransform = getAbsoluteTransform(entity)
+        val localHitPoint = worldToLocal(hitInfo.point, entityTransform)
+
+        // Get panel dimensions for coordinate conversion
+        val dimensions = getPanelDimensions(entity, sceneObject)
+        if (dimensions == null) {
+            grabComponent.recycle()
+            return true // Can't determine dimensions, allow grab
+        }
+
+        val (panelWidth, panelHeight) = dimensions
+
+        // Convert normalized region bounds to local coordinates
+        val (minX, minY) = normalizedToLocal(
+            grabComponent.regionMinX,
+            grabComponent.regionMinY,
+            panelWidth,
+            panelHeight
+        )
+        val (maxX, maxY) = normalizedToLocal(
+            grabComponent.regionMaxX,
+            grabComponent.regionMaxY,
+            panelWidth,
+            panelHeight
+        )
+        val isInRegion = localHitPoint.x >= minX &&
+                         localHitPoint.x <= maxX &&
+                         localHitPoint.y >= minY &&
+                         localHitPoint.y <= maxY
+
+        grabComponent.recycle()
+        return isInRegion
+    }
+
     private fun findNewObjects() {
         val meshQuery = Query.where { (changed(Panel.id) or changed(Mesh.id)) and has(GrabComponent.id) }
         for (entity in meshQuery.eval()) {
@@ -114,8 +199,17 @@ class MetaGrabbableSystem() : SystemBase() {
                                 if (grabbed == null) {
                                     val grabbable = entity.getComponent<GrabComponent>()
                                     if (!grabbable.enabled) {
+                                        grabbable.recycle()
                                         return false
                                     }
+                                    grabbable.recycle()
+
+                                    // Check if hit is within the grab region
+                                    if (!isHitInGrabRegion(hitInfo, entity, so)) {
+                                        // Not in grab region - allow click-through for buttons etc.
+                                        return false
+                                    }
+
                                     val grabbedTransform = getAbsoluteTransform(entity)
                                     grabbingInfo_[sourceOfInput] =
                                         GrabInfo(

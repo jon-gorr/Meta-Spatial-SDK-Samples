@@ -239,37 +239,40 @@ class Object3DSampleIsdkActivity : AppSystemActivity() {
         // Create a panel with region-based grabbing
         // The panel can only be grabbed from the top "title bar" region
         // Other areas (like buttons) will still be clickable without triggering grab
-        val leftPanel = Entity.create(
-            listOf(
-                PanelDimensions(panel1Dimensions),
-                Panel(R.id.scroll_panel),
-                Transform(Pose(Vector3(x = -.5f, y = 1f, z = 1f))),
-                GrabRegion.left(0.1f).toGrabComponent()
-            )
-        )
-
-        val rightPanel = Entity.create(
-            listOf(
-                PanelDimensions(panel2Dimensions),
-                Panel(R.id.scroll_panel),
-                Transform(Pose(Vector3(x = 0f, y = 1f, z = 1f))),
-                GrabRegion.right(0.1f).toGrabComponent()
-            )
-        )
-
-        val topPanel = Entity.create(
-            listOf(
-                PanelDimensions(panel2Dimensions),
-                Panel(R.id.scroll_panel),
-                Transform(Pose(Vector3(x = .5f, y = 1f, z = 1f))),
-                GrabRegion.top(0.1f).toGrabComponent().apply {
-                    enabled = true
-                }
-            )
-        )
+//        val leftPanel = Entity.create(
+//            listOf(
+//                PanelDimensions(panel1Dimensions),
+//                Panel(R.id.scroll_panel),
+//                Transform(Pose(Vector3(x = -.5f, y = 1f, z = 1f))),
+//                GrabRegion.left(0.1f).toGrabComponent()
+//            )
+//        )
+//
+//        val rightPanel = Entity.create(
+//            listOf(
+//                PanelDimensions(panel2Dimensions),
+//                Panel(R.id.scroll_panel),
+//                Transform(Pose(Vector3(x = 0f, y = 1f, z = 1f))),
+//                GrabRegion.right(0.1f).toGrabComponent()
+//            )
+//        )
+//
+//        val topPanel = Entity.create(
+//            listOf(
+//                PanelDimensions(panel2Dimensions),
+//                Panel(R.id.scroll_panel),
+//                Transform(Pose(Vector3(x = .5f, y = 1f, z = 1f))),
+//                GrabRegion.top(0.1f).toGrabComponent().apply {
+//                    enabled = true
+//                }
+//            )
+//        )
 
         val bottomPanel = Entity.create(
             listOf(
+//                IsdkGrabbable().apply {
+//                    enabled = true
+//                },
                 PanelDimensions(panel2Dimensions),
                 Panel(R.id.scroll_panel),
                 Transform(Pose(Vector3(x = 1f, y = 1f, z = 1f))),
@@ -278,14 +281,14 @@ class Object3DSampleIsdkActivity : AppSystemActivity() {
         )
 
         //TODO: this doesn't appear to work as intended
-        val borderPanel = Entity.create(
-            listOf(
-                PanelDimensions(panel2Dimensions),
-                Panel(R.id.scroll_panel),
-                Transform(Pose(Vector3(x = 0f, y = 2f, z = 1f))),
-                GrabRegion.border(0.01f).toGrabComponent()
-            )
-        )
+//        val borderPanel = Entity.create(
+//            listOf(
+//                PanelDimensions(panel2Dimensions),
+//                Panel(R.id.scroll_panel),
+//                Transform(Pose(Vector3(x = 0f, y = 2f, z = 1f))),
+//                GrabRegion.border(0.01f).toGrabComponent()
+//            )
+//        )
 
         // TODO: re-enable?
         //  Optionally configure the grab system
