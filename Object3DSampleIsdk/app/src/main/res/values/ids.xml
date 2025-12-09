@@ -3,4 +3,5 @@
   <item type="id" name="library_panel" />
   <item type="id" name="scroll_panel" />
   <item type="id" name="myPanel"/>
+  <item type="id" name="my_grabbable" />
 </resources>

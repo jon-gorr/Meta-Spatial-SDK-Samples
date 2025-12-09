@@ -21,7 +21,6 @@ import com.meta.spatial.runtime.InputListener
 import com.meta.spatial.runtime.PanelSceneObject
 import com.meta.spatial.runtime.SceneObject
 import com.meta.spatial.toolkit.Controller
-import com.meta.spatial.toolkit.Grabbable
 import com.meta.spatial.toolkit.Panel
 import com.meta.spatial.toolkit.SceneObjectSystem
 import com.meta.spatial.toolkit.Transform
@@ -141,7 +140,7 @@ private data class HoverInfo(
  * Usage:
  * 1. Add this system to your systemManager
  * 2. Register grab regions for entities using [registerGrabRegion]
- * 3. Entities must have both [Grabbable] and [Panel] components
+ * 3. Entities must have both [GrabComponent] and [Panel] components
  */
 class MyGrabSystem : SystemBase() {
 
@@ -176,7 +175,7 @@ class MyGrabSystem : SystemBase() {
 
     /**
      * Registers a grab region for an entity.
-     * The entity must have both [Grabbable] and [Panel] components.
+     * The entity must have both [GrabComponent] and [Panel] components.
      *
      * @param entity The entity to register
      * @param region The grab region in local panel coordinates
@@ -335,12 +334,12 @@ class MyGrabSystem : SystemBase() {
     }
 
     /**
-     * Finds new entities with Grabbable and Panel components and sets up input listeners.
+     * Finds new entities with GrabComponent and Panel components and sets up input listeners.
      */
     private fun findNewObjects() {
-        // Query for entities that have both Grabbable and Panel components
+        // Query for entities that have both GrabComponent and Panel components
         val q = Query.where {
-            (changed(Grabbable.id, Panel.id)) and has(Grabbable.id) and has(Panel.id)
+            (changed(GrabComponent.id, Panel.id)) and has(GrabComponent.id) and has(Panel.id)
         }
 
         for (entity in q.eval()) {
@@ -386,8 +385,7 @@ class MyGrabSystem : SystemBase() {
                             }
 
                             // Check if grabbable is enabled
-                            val grabbable = receiverEntity.tryGetComponent<Grabbable>()
-                            if (grabbable == null || !grabbable.enabled) {
+                            if (!receiverEntity.hasComponent<GrabComponent>()) {
                                 return false
                             }
 
@@ -412,10 +410,6 @@ class MyGrabSystem : SystemBase() {
                                 grabbedLocalOffset = grabbedTransform.inverse() * hitInfo.point,
                                 grabbedFacing = getFacing(sceneObject, grabbedTransform)
                             )
-
-                            // Mark as grabbed
-                            grabbable.isGrabbed = true
-                            receiverEntity.setComponent(grabbable)
 
                             return true // Consume the input
                         }
@@ -460,13 +454,8 @@ class MyGrabSystem : SystemBase() {
                 toRemove.add(sourceId)
 
                 // Mark as not grabbed
-                val grabbable = info.grabbedEntity.tryGetComponent<Grabbable>()
-                if (grabbable != null) {
-                    grabbable.isGrabbed = false
-                    info.grabbedEntity.setComponent(grabbable)
-                    grabbable.recycle()
-                }
-
+                val grabbable = info.grabbedEntity.tryGetComponent<GrabComponent>()
+                grabbable?.recycle()
                 controller.recycle()
                 return@forEach
             }
@@ -476,7 +465,6 @@ class MyGrabSystem : SystemBase() {
             val newTranslation = transform.transform * Vector3(0f, 0f, info.grabbedDistance)
 
             var grabbedTransform = getAbsoluteTransform(info.grabbedEntity)
-            val grabbable = info.grabbedEntity.tryGetComponent<Grabbable>()
 
             // Calculate rotation to face user
             val lookDirection = headPose.t - grabbedTransform.t
@@ -491,11 +479,6 @@ class MyGrabSystem : SystemBase() {
                 smoothOver(dt, interpolationRate)
             )
 
-            // Apply height constraints if set
-            if (grabbable != null) {
-                grabbedTransform.t.y = grabbedTransform.t.y.coerceIn(grabbable.minHeight, grabbable.maxHeight)
-            }
-
             // Handle parented entities
             if (info.grabbedEntity.hasComponent<TransformParent>()) {
                 val transformParentComponent = info.grabbedEntity.getComponent<TransformParent>()
@@ -507,14 +490,8 @@ class MyGrabSystem : SystemBase() {
 
             info.grabbedEntity.setComponent(Transform(grabbedTransform))
 
-            if (grabbable != null && !grabbable.isGrabbed) {
-                grabbable.isGrabbed = true
-                info.grabbedEntity.setComponent(grabbable)
-            }
-
             controller.recycle()
             transform.recycle()
-            grabbable?.recycle()
         }
 
         // Remove completed grabs

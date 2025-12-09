@@ -33,10 +33,10 @@ import com.meta.spatial.runtime.ReferenceSpace
 import com.meta.spatial.runtime.SceneMaterial
 import com.meta.spatial.runtime.SceneObject
 import com.meta.spatial.runtime.SemanticType
+import com.meta.spatial.samples.object3dsampleisdk.GrabComponent
 import com.meta.spatial.toolkit.AppSystemActivity
 import com.meta.spatial.toolkit.DpPerMeterDisplayOptions
 import com.meta.spatial.toolkit.GLXFInfo
-import com.meta.spatial.toolkit.Grabbable
 import com.meta.spatial.toolkit.LayoutXMLPanelRegistration
 import com.meta.spatial.toolkit.Material
 import com.meta.spatial.toolkit.Mesh
@@ -99,6 +99,7 @@ class Object3DSampleIsdkActivity : AppSystemActivity() {
         // Register our custom grab system that supports region-based grabbing
         // This must be done before loading any entities that use it
         systemManager.registerSystem(MyGrabSystem())
+        componentManager.registerComponent<GrabComponent>(GrabComponent.Companion)
 
         loadGLXF { composition ->
             robot = composition.getNodeByName("robot").entity
@@ -245,8 +246,8 @@ class Object3DSampleIsdkActivity : AppSystemActivity() {
         val scrollPanel = Entity.create(
             listOf(
                 Panel(R.id.scroll_panel),
-                Transform(Pose(Vector3(x = -0.3f, y = 1f, z = 0.2f))),
-                Grabbable(),
+                Transform(Pose(Vector3(x = 0f, y = 1f, z = 1f))),
+                GrabComponent()
             )
         )
 
