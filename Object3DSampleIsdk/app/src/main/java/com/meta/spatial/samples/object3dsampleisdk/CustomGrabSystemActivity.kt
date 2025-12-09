@@ -55,11 +55,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-class Object3DSampleIsdkActivity : AppSystemActivity() {
+class CustomGrabSystemActivity : AppSystemActivity() {
 
     private val activityScope = CoroutineScope(Dispatchers.Main)
     private var gltfxEntity: Entity? = null
-    private var passthroughEnabled = false
+    val panelDimensions: Vector2 = Vector2(0.45f, .66f)
     private val physicsStates = HashMap<Entity, PhysicsState>()
     private var robot: Entity? = null
     private var drone: Entity? = null
@@ -109,101 +109,6 @@ class Object3DSampleIsdkActivity : AppSystemActivity() {
             environmentMesh?.defaultShaderOverride = SceneMaterial.UNLIT_SHADER
             environmentEntity?.setComponent(environmentMesh!!)
         }
-
-        // Set up ISDK input listener
-        // This performs two major functions:
-        // 1. Hover affordance - indicate objects are hovered by slightly scaling them up in size
-        // 2. Handle object release - notify physics when objects are released
-        systemManager.tryFindSystem<IsdkInputListenerSystem>()?.setInputListener(
-            object : InputListener {
-                val selectCounts: HashMap<Long, Int> = HashMap<Long, Int>()
-
-                // we are only interested in grabbing physics objects
-                fun isGrabbablePhysicsObject(ent: Entity): Boolean {
-                    return ent.hasComponent<IsdkGrabbable>() && ent.hasComponent<Physics>()
-                }
-
-                override fun onPointerEvent(
-                    receiver: SceneObject,
-                    hitInfo: HitInfo,
-                    type: Int,
-                    sourceOfInput: Entity,
-                    scrollInfo: Vector2,
-                    semanticType: Int,
-                ) {
-                    super.onPointerEvent(
-                        receiver,
-                        hitInfo,
-                        type,
-                        sourceOfInput,
-                        scrollInfo,
-                        semanticType,
-                    )
-
-                    // We only want to process "grab" events
-                    if (semanticType != SemanticType.Grab.id) {
-                        return
-                    }
-
-                    when (type) {
-                        PointerEventType.Hover.id -> {
-                            var ent = receiver.entity ?: return
-                            if (isGrabbablePhysicsObject(ent)) {
-                                // Slighly increase the scale to visually indicate object is hovered
-                                val originalScale = ent.getComponent<Scale>().scale
-                                val newScale = originalScale + Vector3(0.05f)
-                                ent.setComponent(Scale(newScale))
-                            }
-                        }
-
-                        PointerEventType.Unhover.id -> {
-                            var ent = receiver.entity ?: return
-                            if (isGrabbablePhysicsObject(ent)) {
-                                // Return back to normal scale
-                                val originalScale = ent.getComponent<Scale>().scale
-                                val newScale = originalScale - Vector3(0.05f)
-                                ent.setComponent(Scale(newScale))
-                            }
-                        }
-
-                        PointerEventType.Select.id -> {
-                            var ent = receiver.entity ?: return
-                            if (isGrabbablePhysicsObject(ent)) {
-                                // Keeping track of selects, to know when an object is actually released
-                                selectCounts[ent.id] = (selectCounts[ent.id] ?: 0) + 1
-
-                                if (selectCounts[ent.id] == 1) {
-                                    val physics = ent.getComponent<Physics>()
-                                    physicsStates[ent] = physics.state
-                                    physics.state = PhysicsState.KINEMATIC
-                                    ent.setComponent(physics)
-                                    physics.recycle()
-                                }
-                            }
-                        }
-
-                        PointerEventType.Unselect.id -> {
-                            var ent = receiver.entity ?: return
-                            if (isGrabbablePhysicsObject(ent)) {
-                                if (selectCounts.containsKey(ent.id) && selectCounts[ent.id]!! == 1) {
-                                    // notify physics it should control this object again
-                                    // Note: if we do not set physics.state, the object will drop straight down
-                                    // instead of carrying forward with momentum
-                                    val physics = ent.getComponent<Physics>()
-                                    physics.state =
-                                        physicsStates.remove(ent) ?: PhysicsState.DYNAMIC
-                                    ent.setComponent(physics)
-                                    physics.recycle()
-                                }
-                                selectCounts[ent.id] = (selectCounts[ent.id] ?: 0) - 1
-                            }
-                        }
-
-                        else -> {} // No-op for other event types
-                    }
-                }
-            }
-        )
     }
 
     override fun onSceneReady() {
@@ -234,70 +139,82 @@ class Object3DSampleIsdkActivity : AppSystemActivity() {
                 )
             )
 
-        // Create a panel with region-based grabbing
-        // The panel can only be grabbed from the top "title bar" region
-        // Other areas (like buttons) will still be clickable without triggering grab
+        // Panels with grabbable regions
+        // TODO: there is no raycast blocking; therefore clicks and drags pass through grab regions
+
+        // there is a grabbable handle on the right of the panel
         val leftPanel = Entity.create(
             listOf(
-                PanelDimensions(panel1Dimensions),
+                PanelDimensions(panelDimensions),
                 Panel(R.id.scroll_panel),
                 Transform(Pose(Vector3(x = -.5f, y = 1f, z = 1f))),
                 GrabRegion.left(0.1f).toGrabComponent()
             )
         )
 
+        // there is a grabbable handle on the right of the panel
         val rightPanel = Entity.create(
             listOf(
-                PanelDimensions(panel2Dimensions),
+                PanelDimensions(panelDimensions),
                 Panel(R.id.scroll_panel),
                 Transform(Pose(Vector3(x = 0f, y = 1f, z = 1f))),
                 GrabRegion.right(0.1f).toGrabComponent()
             )
         )
 
+        // there is a grabbable handle on the top of the panel
         val topPanel = Entity.create(
             listOf(
-                PanelDimensions(panel2Dimensions),
+                PanelDimensions(panelDimensions),
                 Panel(R.id.scroll_panel),
                 Transform(Pose(Vector3(x = .5f, y = 1f, z = 1f))),
                 GrabRegion.top(0.1f).toGrabComponent()
             )
         )
 
+        // there is a grabbable handle on the bottom of the panel
         val bottomPanel = Entity.create(
             listOf(
-                PanelDimensions(panel2Dimensions),
+                PanelDimensions(panelDimensions),
                 Panel(R.id.scroll_panel),
                 Transform(Pose(Vector3(x = 1f, y = 1f, z = 1f))),
                 GrabRegion.bottom(0.1f).toGrabComponent()
             )
         )
 
+        // there is a grabbable handle around the edge of the panel
         val borderPanel = Entity.create(
             listOf(
-                PanelDimensions(panel2Dimensions),
+                PanelDimensions(panelDimensions),
                 Panel(R.id.scroll_panel),
                 Transform(Pose(Vector3(x = 0f, y = 2f, z = 1f))),
                 GrabRegion.border(0.1f).toGrabComponent()
             )
         )
 
+        // places a grabbable region in the center of the panel proportional to the panel dimensions
         val centerPanel = Entity.create(
             listOf(
-                PanelDimensions(panel2Dimensions),
+                PanelDimensions(panelDimensions),
                 Panel(R.id.scroll_panel),
                 Transform(Pose(Vector3(x = -.5f, y = 2f, z = 1f))),
                 GrabRegion.center(0.5f).toGrabComponent()
             )
         )
 
+        // places a custom grabbable area at the defined min and max x and y
+        val customPanel = Entity.create(
+            listOf(
+                PanelDimensions(panelDimensions),
+                Panel(R.id.scroll_panel),
+                Transform(Pose(Vector3(x = .5f, y = 2f, z = 1f))),
+                GrabRegion.custom(0f, .5f, 0f, .5f).toGrabComponent()
+            )
+        )
+
         // uncomment to see the physics debug lines
         spatial.enablePhysicsDebugLines(true)
     }
-
-    val panel1Dimensions: Vector2 = Vector2(0.3375f, 0.6f)
-    val panel2Dimensions: Vector2 = Vector2(0.3375f, 0.6f)
-
 
     override fun registerPanels(): List<PanelRegistration> {
         return listOf(

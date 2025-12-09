@@ -62,7 +62,7 @@
       android:required="false"
     />
     <activity
-      android:name="com.meta.spatial.samples.object3dsampleisdk.Object3DSampleIsdkActivity"
+      android:name="com.meta.spatial.samples.object3dsampleisdk.CustomGrabSystemActivity"
       android:launchMode="singleTask"
       android:excludeFromRecents="false"
       android:configChanges="screenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation|uiMode"

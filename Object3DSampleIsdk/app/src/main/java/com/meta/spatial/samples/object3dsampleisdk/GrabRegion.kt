@@ -7,6 +7,8 @@
 
 package com.meta.spatial.samples.object3dsampleisdk
 
+import kotlin.math.abs
+
 /**
  * Helper object for creating common grab region configurations.
  *
@@ -102,17 +104,22 @@ object GrabRegion {
     }
 
     /**
-     * Creates a grab region centered on the panel.
+     * Creates a grab region centered on the panel with a border margin.
      *
-     * @param width The width of the region as a fraction of panel width (0-1). Default is 10%.
-     * @param height The height of the region as a fraction of panel height (0-1). Default is 10%.
+     * The border parameter represents the normalized size of the non-grabbable area from each edge.
+     * - border = 0: entire panel is grabbable (full region)
+     * - border = 1: nothing is grabbable (zero-sized region at center)
+     * - border = 0.5: center 50% of the panel is grabbable (25% border on each edge)
+     *
+     * @param border The normalized border size (0-1). Default is 0 (full panel grabbable).
      */
-    fun center(width: Float = DEFAULT_EDGE_SIZE, height: Float = DEFAULT_EDGE_SIZE): Region {
+    fun center(border: Float = 0f): Region {
+        val halfBorder = border / 2f
         return Region(
-            minX = 0.5f - width / 2f,
-            maxX = 0.5f + width / 2f,
-            minY = 0.5f - height / 2f,
-            maxY = 0.5f + height / 2f
+            minX = halfBorder,
+            maxX = 1f - halfBorder,
+            minY = halfBorder,
+            maxY = 1f - halfBorder
         )
     }
 
