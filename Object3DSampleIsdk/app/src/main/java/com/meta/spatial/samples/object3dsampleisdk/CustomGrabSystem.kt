@@ -20,8 +20,6 @@ import com.meta.spatial.runtime.SceneObject
 import com.meta.spatial.runtime.panel.shapeType
 import com.meta.spatial.samples.object3dsampleisdk.GrabComponent
 import com.meta.spatial.samples.object3dsampleisdk.GrabbableType
-import com.meta.spatial.toolkit.ControllerType
-import com.meta.spatial.toolkit.GrabbableType.*
 
 private class GrabInfo(
     val grabbedEntity: Entity,
@@ -40,7 +38,7 @@ private class GrabInfo(
  * components. It interacts with [Controller] components to detect grab inputs and can affect
  * [Followable] components by disabling them during grabs.
  */
-class MetaGrabbableSystem() : SystemBase() {
+class CustomGrabSystem() : SystemBase() {
 
     var active = true
 

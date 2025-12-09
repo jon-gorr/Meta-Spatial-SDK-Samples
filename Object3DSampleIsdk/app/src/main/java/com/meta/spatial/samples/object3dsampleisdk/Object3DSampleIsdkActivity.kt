@@ -33,7 +33,6 @@ import com.meta.spatial.runtime.ReferenceSpace
 import com.meta.spatial.runtime.SceneMaterial
 import com.meta.spatial.runtime.SceneObject
 import com.meta.spatial.runtime.SemanticType
-import com.meta.spatial.samples.object3dsampleisdk.GrabComponent
 import com.meta.spatial.toolkit.AppSystemActivity
 import com.meta.spatial.toolkit.DpPerMeterDisplayOptions
 import com.meta.spatial.toolkit.GLXFInfo
@@ -41,7 +40,7 @@ import com.meta.spatial.toolkit.LayoutXMLPanelRegistration
 import com.meta.spatial.toolkit.Material
 import com.meta.spatial.toolkit.Mesh
 import com.meta.spatial.toolkit.MeshCollision
-import com.meta.spatial.toolkit.MetaGrabbableSystem
+import com.meta.spatial.toolkit.CustomGrabSystem
 import com.meta.spatial.toolkit.Panel
 import com.meta.spatial.toolkit.PanelDimensions
 import com.meta.spatial.toolkit.PanelRegistration
@@ -93,7 +92,7 @@ class Object3DSampleIsdkActivity : AppSystemActivity() {
 
         // Register our custom grab system that supports region-based grabbing
         // This must be done before loading any entities that use it
-        systemManager.registerSystem(MetaGrabbableSystem())
+        systemManager.registerSystem(CustomGrabSystem())
         componentManager.registerComponent<GrabComponent>(GrabComponent.Companion)
 
         loadGLXF { composition ->
@@ -292,23 +291,12 @@ class Object3DSampleIsdkActivity : AppSystemActivity() {
             )
         )
 
-        // TODO: re-enable?
-        //  Optionally configure the grab system
-        val myGrabSystem = systemManager.tryFindSystem<MyGrabSystem>()
-        myGrabSystem?.apply {
-            // Customize hover animation scale (5% larger when hovered)
-            hoverScaleMultiplier = 1.05f
-            // Customize animation duration
-            hoverAnimationDurationMs = 200L
-        }
-
         // uncomment to see the physics debug lines
         spatial.enablePhysicsDebugLines(true)
     }
 
     val panel1Dimensions: Vector2 = Vector2(0.3375f, 0.6f)
     val panel2Dimensions: Vector2 = Vector2(0.3375f, 0.6f)
-
 
 
     override fun registerPanels(): List<PanelRegistration> {
