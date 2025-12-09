@@ -2,6 +2,7 @@
 
 package com.meta.spatial.toolkit
 
+import android.graphics.Color
 import com.meta.spatial.core.Entity
 import com.meta.spatial.core.Pose
 import com.meta.spatial.core.Quaternion
@@ -61,6 +62,18 @@ class MetaGrabbableSystem() : SystemBase() {
      * These are used when the controller type is HAND.
      */
     public var handGrabButtons: Int = ButtonBits.ButtonA or ButtonBits.ButtonY
+
+    /**
+     * Enable debug drawing of grab regions.
+     * When enabled, draws a rectangle outline showing the grabbable area on each panel.
+     */
+    public var debugDrawEnabled: Boolean = true
+
+    /**
+     * Color for debug grab region drawing.
+     * Default is cyan for good visibility.
+     */
+    public var debugDrawColor: Int = Color.CYAN
     private var lastTime = System.currentTimeMillis()
     private val grabbingInfo_ = HashMap<Entity, GrabInfo>()
     private val grabbedEntityToGrabber_ = HashMap<Entity, Entity>()
@@ -152,6 +165,79 @@ class MetaGrabbableSystem() : SystemBase() {
 
         grabComponent.recycle()
         return isInRegion
+    }
+
+    /**
+     * Draws the grab region as a debug rectangle on the panel.
+     * The rectangle is drawn slightly in front of the panel to be visible.
+     */
+    private fun drawDebugGrabRegion(entity: Entity) {
+        val grabComponent = entity.tryGetComponent<GrabComponent>() ?: return
+        val entityTransform = getAbsoluteTransform(entity)
+
+        // Get panel dimensions
+        val sceneObject = systemManager.findSystem<SceneObjectSystem>().getSceneObject(entity)
+        var panelWidth = 1f
+        var panelHeight = 1f
+
+        sceneObject?.thenAccept { so ->
+            val dimensions = getPanelDimensions(entity, so)
+            if (dimensions != null) {
+                panelWidth = dimensions.first
+                panelHeight = dimensions.second
+            }
+        }
+
+        // Convert normalized region bounds to local coordinates
+        val (minX, minY) = normalizedToLocal(
+            grabComponent.regionMinX,
+            grabComponent.regionMinY,
+            panelWidth,
+            panelHeight
+        )
+        val (maxX, maxY) = normalizedToLocal(
+            grabComponent.regionMaxX,
+            grabComponent.regionMaxY,
+            panelWidth,
+            panelHeight
+        )
+
+        // Offset slightly in front of the panel (along negative Z in panel local space)
+        val zOffset = -0.001f
+
+        // Define the four corners in local space
+        val bottomLeft = Vector3(minX, minY, zOffset)
+        val bottomRight = Vector3(maxX, minY, zOffset)
+        val topRight = Vector3(maxX, maxY, zOffset)
+        val topLeft = Vector3(minX, maxY, zOffset)
+
+        // Transform corners to world space
+        val worldBottomLeft = entityTransform * bottomLeft
+        val worldBottomRight = entityTransform * bottomRight
+        val worldTopRight = entityTransform * topRight
+        val worldTopLeft = entityTransform * topLeft
+
+        val color = Color.valueOf(debugDrawColor)
+
+        // Draw the rectangle outline
+        getScene().drawDebugLine(worldBottomLeft, worldBottomRight, color, 1)
+        getScene().drawDebugLine(worldBottomRight, worldTopRight, color, 1)
+        getScene().drawDebugLine(worldTopRight, worldTopLeft, color, 1)
+        getScene().drawDebugLine(worldTopLeft, worldBottomLeft, color, 1)
+
+        grabComponent.recycle()
+    }
+
+    /**
+     * Draws debug grab regions for all entities with GrabComponent.
+     */
+    private fun drawDebugGrabRegions() {
+        if (!debugDrawEnabled) return
+
+        val q = Query.where { has(GrabComponent.id) }
+        for (entity in q.eval()) {
+            drawDebugGrabRegion(entity)
+        }
     }
 
     private fun findNewObjects() {
@@ -363,6 +449,7 @@ class MetaGrabbableSystem() : SystemBase() {
         val dt = Math.min((currentTime - lastTime) / 1000f, 0.1f)
         findNewObjects()
         processGrabbable(dt)
+        drawDebugGrabRegions()
         lastTime = currentTime
     }
 

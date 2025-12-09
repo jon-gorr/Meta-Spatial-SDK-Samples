@@ -97,6 +97,21 @@ object GrabRegion {
     }
 
     /**
+     * Creates a grab region centered on the panel.
+     *
+     * @param width The width of the region as a fraction of panel width (0-1). Default is 10%.
+     * @param height The height of the region as a fraction of panel height (0-1). Default is 10%.
+     */
+    fun center(width: Float = DEFAULT_EDGE_SIZE, height: Float = DEFAULT_EDGE_SIZE): Region {
+        return Region(
+            minX = 0.5f - width / 2f,
+            maxX = 0.5f + width / 2f,
+            minY = 0.5f - height / 2f,
+            maxY = 0.5f + height / 2f
+        )
+    }
+
+    /**
      * Creates a grab region at the bottom of the panel.
      *
      * @param size The height of the region as a fraction of panel height (0-1). Default is 10%.
