@@ -15,7 +15,7 @@ plugins {
 android {
   namespace = "com.meta.spatial.samples.object3dsampleisdk"
   //noinspection GradleDependency
-  compileSdk = 34
+  compileSdk = 35
 
   defaultConfig {
     applicationId = "com.meta.spatial.samples.object3dsampleisdk"
@@ -54,7 +54,8 @@ android {
 //noinspection UseTomlInstead
 dependencies {
   implementation(libs.androidx.core.ktx)
-  testImplementation(libs.junit)
+    implementation(libs.androidx.ui.text.google.fonts)
+    testImplementation(libs.junit)
   androidTestImplementation(libs.androidx.junit)
   androidTestImplementation(libs.androidx.espresso.core)
 

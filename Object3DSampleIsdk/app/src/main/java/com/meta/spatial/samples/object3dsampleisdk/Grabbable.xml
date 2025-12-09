@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ComponentSchema packageName="replace.with.package.for.your.components"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://developers.meta.com/horizon/spatial-sdk/latest/ComponentSchema.xsd">
+    <Component name="Grabbable">
+
+    </Component>
+
+</ComponentSchema>

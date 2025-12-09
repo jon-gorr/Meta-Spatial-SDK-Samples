@@ -61,8 +61,8 @@ import com.meta.spatial.uiset.theme.SpatialTheme
 import com.meta.spatial.uiset.theme.darkSpatialColorScheme
 import com.meta.spatial.uiset.theme.lightSpatialColorScheme
 
-const val PANEL_WIDTH = 2.048f
-const val PANEL_HEIGHT = 1.254f
+const val PANEL_WIDTH = 1f
+const val PANEL_HEIGHT = .676f
 private const val DARK_GRAY = 0x1A000000
 private const val LIGHT_GRAY = 0x0D272727
 
