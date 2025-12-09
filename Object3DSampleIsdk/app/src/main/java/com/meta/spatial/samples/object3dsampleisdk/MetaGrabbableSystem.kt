@@ -17,6 +17,7 @@ import com.meta.spatial.runtime.SceneObject
 import com.meta.spatial.runtime.panel.shapeType
 import com.meta.spatial.samples.object3dsampleisdk.GrabComponent
 import com.meta.spatial.samples.object3dsampleisdk.GrabbableType
+import com.meta.spatial.toolkit.ControllerType
 import com.meta.spatial.toolkit.GrabbableType.*
 
 private class GrabInfo(
@@ -41,7 +42,7 @@ class MetaGrabbableSystem() : SystemBase() {
     var active = true
 
     /**
-     * The default is just grabbing with the grip buttons. You can change the grab buttons by
+     * The default is just grabbing with the grip buttons for controllers. You can change the grab buttons by
      * accessing the grabButtons variable of the GrabbableSystem:
      *
      * Example:
@@ -51,6 +52,13 @@ class MetaGrabbableSystem() : SystemBase() {
      * ```
      */
     public var grabButtons: Int = ButtonBits.ButtonSqueezeR or ButtonBits.ButtonSqueezeL
+
+    /**
+     * Hand grab buttons for hand tracking input (pinch gestures).
+     * ButtonA maps to right hand pinch, ButtonY maps to left hand pinch.
+     * These are used when the controller type is HAND.
+     */
+    public var handGrabButtons: Int = ButtonBits.ButtonA or ButtonBits.ButtonY
     private var lastTime = System.currentTimeMillis()
     private val grabbingInfo_ = HashMap<Entity, GrabInfo>()
     private val grabbedEntityToGrabber_ = HashMap<Entity, Entity>()
@@ -89,15 +97,23 @@ class MetaGrabbableSystem() : SystemBase() {
                             clicked: Int,
                             downTime: Long,
                         ): Boolean {
+                            if (!sourceOfInput.hasComponent<Controller>()) {
+                                return false
+                            }
+                            val controller = sourceOfInput.getComponent<Controller>()
+                            val activeGrabButtons = if (controller.type == ControllerType.HAND) {
+                                handGrabButtons
+                            } else {
+                                grabButtons
+                            }
+                            controller.recycle()
+
                             val anyButtonDown: Int = changed and clicked
-                            if ((anyButtonDown and grabButtons) != 0) {
+                            if ((anyButtonDown and activeGrabButtons) != 0) {
                                 val grabbed = grabbingInfo_[sourceOfInput]
                                 if (grabbed == null) {
                                     val grabbable = entity.getComponent<GrabComponent>()
                                     if (!grabbable.enabled) {
-                                        return false
-                                    }
-                                    if (!sourceOfInput.hasComponent<Controller>()) {
                                         return false
                                     }
                                     val grabbedTransform = getAbsoluteTransform(entity)
@@ -181,8 +197,13 @@ class MetaGrabbableSystem() : SystemBase() {
             val grabber = entry.key
 
             val controller = grabber.tryGetComponent<Controller>() ?: return
+            val activeGrabButtons = if (controller.type == ControllerType.HAND) {
+                handGrabButtons
+            } else {
+                grabButtons
+            }
             val anyButtonReleased: Int = controller.changedButtons and (controller.buttonState.inv())
-            if ((anyButtonReleased and grabButtons) != 0) {
+            if ((anyButtonReleased and activeGrabButtons) != 0) {
                 grabbingInfo_.remove(entry.key)
                 val info = entry.value
                 grabbedEntityToGrabber_.remove(info.grabbedEntity!!)
