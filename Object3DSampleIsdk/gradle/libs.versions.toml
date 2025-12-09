@@ -1,4 +1,6 @@
 [versions]
+spatialsdk = "0.9.1"
+agp = "8.5.0"
 spatialsdk = "0.9.0"
 agp = "8.6.0"
 kotlin = "2.1.0"
@@ -9,7 +11,6 @@ espressoCore = "3.6.1"
 composeActivity = "1.9.2"
 lifecycleRuntimeKtx = "2.8.6"
 composeBom = "2024.09.03"
-uiTextGoogleFonts = "1.10.0"
 
 [libraries]
 # Meta Spatial SDK Libraries
@@ -45,7 +46,6 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
-androidx-ui-text-google-fonts = { group = "androidx.compose.ui", name = "ui-text-google-fonts", version.ref = "uiTextGoogleFonts" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
