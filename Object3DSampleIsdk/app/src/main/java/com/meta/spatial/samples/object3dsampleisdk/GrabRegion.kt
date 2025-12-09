@@ -40,7 +40,8 @@ object GrabRegion {
         val minX: Float,
         val maxX: Float,
         val minY: Float,
-        val maxY: Float
+        val maxY: Float,
+        val isBorderMode: Boolean = false
     ) {
         /**
          * Applies this region to an existing GrabComponent.
@@ -50,6 +51,7 @@ object GrabRegion {
             component.regionMaxX = maxX
             component.regionMinY = minY
             component.regionMaxY = maxY
+            component.isBorderMode = isBorderMode
         }
 
         /**
@@ -61,18 +63,21 @@ object GrabRegion {
                 regionMaxX = maxX
                 regionMinY = minY
                 regionMaxY = maxY
+                isBorderMode = this@Region.isBorderMode
             }
         }
 
         /**
          * Combines this region with another, creating a region that covers both.
+         * Note: This does NOT work correctly for border mode regions.
          */
         fun union(other: Region): Region {
             return Region(
                 minX = minOf(minX, other.minX),
                 maxX = maxOf(maxX, other.maxX),
                 minY = minOf(minY, other.minY),
-                maxY = maxOf(maxY, other.maxY)
+                maxY = maxOf(maxY, other.maxY),
+                isBorderMode = false
             )
         }
     }
@@ -155,14 +160,39 @@ object GrabRegion {
 
     /**
      * Creates a grab region as a border around the entire panel.
+     * Only the edges are grabbable; the center of the panel is not.
      *
      * @param size The width of the border as a fraction of panel dimensions (0-1). Default is 10%.
      */
     fun border(size: Float = DEFAULT_EDGE_SIZE): Region {
-        // For a border, we actually want to allow grabbing anywhere except the center
-        // This is approximated by using the full region, but ideally you'd use multiple regions
-        // or a different check. For simplicity, this returns top + bottom combined.
-        return top(size).union(bottom(size)).union(left(size)).union(right(size))
+        // In border mode, the region values represent border widths from each edge:
+        // minX = left border width, maxX = right border width
+        // minY = bottom border height, maxY = top border height
+        return Region(
+            minX = size,      // left border width
+            maxX = size,      // right border width
+            minY = size,      // bottom border height
+            maxY = size,      // top border height
+            isBorderMode = true
+        )
+    }
+
+    /**
+     * Creates a grab region as a border with different sizes for each edge.
+     *
+     * @param left The left border width as a fraction of panel width (0-1).
+     * @param right The right border width as a fraction of panel width (0-1).
+     * @param bottom The bottom border height as a fraction of panel height (0-1).
+     * @param top The top border height as a fraction of panel height (0-1).
+     */
+    fun border(left: Float, right: Float, bottom: Float, top: Float): Region {
+        return Region(
+            minX = left,
+            maxX = right,
+            minY = bottom,
+            maxY = top,
+            isBorderMode = true
+        )
     }
 
     /**

@@ -66,5 +66,12 @@
             name="regionMaxY"
             defaultValue="1.0f"
         />
+        <!-- Border mode: when true, regionMinX/Y defines the border width from each edge -->
+        <!-- and the center of the panel (excluding the border) is NOT grabbable -->
+        <BooleanAttribute
+            name="isBorderMode"
+            defaultValue="false"
+            description="When true, creates a border region where only the edges are grabbable. regionMinX is left border width, regionMaxX is right border width, regionMinY is bottom border height, regionMaxY is top border height."
+        />
     </Component>
 </ComponentSchema>

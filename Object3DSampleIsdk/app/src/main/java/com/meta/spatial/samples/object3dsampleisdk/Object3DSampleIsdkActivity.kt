@@ -93,7 +93,6 @@ class Object3DSampleIsdkActivity : AppSystemActivity() {
 
         // Register our custom grab system that supports region-based grabbing
         // This must be done before loading any entities that use it
-        //systemManager.registerSystem(MyGrabSystem())
         systemManager.registerSystem(MetaGrabbableSystem())
         componentManager.registerComponent<GrabComponent>(GrabComponent.Companion)
 
@@ -262,9 +261,7 @@ class Object3DSampleIsdkActivity : AppSystemActivity() {
                 PanelDimensions(panel2Dimensions),
                 Panel(R.id.scroll_panel),
                 Transform(Pose(Vector3(x = .5f, y = 1f, z = 1f))),
-                GrabRegion.top(0.1f).toGrabComponent().apply {
-                    enabled = true
-                }
+                GrabRegion.top(0.1f).toGrabComponent()
             )
         )
 
@@ -277,7 +274,6 @@ class Object3DSampleIsdkActivity : AppSystemActivity() {
             )
         )
 
-        //TODO: this doesn't appear to work as intended
         val borderPanel = Entity.create(
             listOf(
                 PanelDimensions(panel2Dimensions),
@@ -291,7 +287,7 @@ class Object3DSampleIsdkActivity : AppSystemActivity() {
             listOf(
                 PanelDimensions(panel2Dimensions),
                 Panel(R.id.scroll_panel),
-                Transform(Pose(Vector3(x = 0f, y = 2f, z = 1f))),
+                Transform(Pose(Vector3(x = -.5f, y = 2f, z = 1f))),
                 GrabRegion.center(0.5f).toGrabComponent()
             )
         )

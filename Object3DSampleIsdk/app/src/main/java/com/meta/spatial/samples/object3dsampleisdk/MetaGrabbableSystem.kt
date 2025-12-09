@@ -130,6 +130,7 @@ class MetaGrabbableSystem() : SystemBase() {
     /**
      * Checks if a hit point is within the grab region defined in the entity's GrabComponent.
      * The GrabComponent uses normalized coordinates (0-1) which are converted to local space.
+     * Supports both regular rectangular regions and border mode.
      */
     private fun isHitInGrabRegion(hitInfo: HitInfo, entity: Entity, sceneObject: SceneObject?): Boolean {
         val grabComponent = entity.tryGetComponent<GrabComponent>() ?: return true
@@ -144,24 +145,59 @@ class MetaGrabbableSystem() : SystemBase() {
         }
 
         val (panelWidth, panelHeight) = dimensions
+        val isBorderMode = grabComponent.isBorderMode
 
-        // Convert normalized region bounds to local coordinates
-        val (minX, minY) = normalizedToLocal(
-            grabComponent.regionMinX,
-            grabComponent.regionMinY,
-            panelWidth,
-            panelHeight
-        )
-        val (maxX, maxY) = normalizedToLocal(
-            grabComponent.regionMaxX,
-            grabComponent.regionMaxY,
-            panelWidth,
-            panelHeight
-        )
-        val isInRegion = localHitPoint.x >= minX &&
+        val isInRegion: Boolean
+
+        if (isBorderMode) {
+            // In border mode, regionMinX/MaxX/MinY/MaxY represent border widths from each edge
+            // The hit is valid if it's within any of the border strips
+            val leftBorder = grabComponent.regionMinX
+            val rightBorder = grabComponent.regionMaxX
+            val bottomBorder = grabComponent.regionMinY
+            val topBorder = grabComponent.regionMaxY
+
+            // Convert border widths to local coordinates
+            val leftEdge = -panelWidth / 2f
+            val rightEdge = panelWidth / 2f
+            val bottomEdge = -panelHeight / 2f
+            val topEdge = panelHeight / 2f
+
+            val leftBorderLocal = leftEdge + (leftBorder * panelWidth)
+            val rightBorderLocal = rightEdge - (rightBorder * panelWidth)
+            val bottomBorderLocal = bottomEdge + (bottomBorder * panelHeight)
+            val topBorderLocal = topEdge - (topBorder * panelHeight)
+
+            // Check if hit is within any of the four border strips
+            val inLeftBorder = localHitPoint.x >= leftEdge && localHitPoint.x <= leftBorderLocal
+            val inRightBorder = localHitPoint.x >= rightBorderLocal && localHitPoint.x <= rightEdge
+            val inBottomBorder = localHitPoint.y >= bottomEdge && localHitPoint.y <= bottomBorderLocal
+            val inTopBorder = localHitPoint.y >= topBorderLocal && localHitPoint.y <= topEdge
+
+            // Point is in border if it's within the panel bounds AND in any border strip
+            val inPanelBounds = localHitPoint.x >= leftEdge && localHitPoint.x <= rightEdge &&
+                                localHitPoint.y >= bottomEdge && localHitPoint.y <= topEdge
+
+            isInRegion = inPanelBounds && (inLeftBorder || inRightBorder || inBottomBorder || inTopBorder)
+        } else {
+            // Standard rectangular region mode
+            val (minX, minY) = normalizedToLocal(
+                grabComponent.regionMinX,
+                grabComponent.regionMinY,
+                panelWidth,
+                panelHeight
+            )
+            val (maxX, maxY) = normalizedToLocal(
+                grabComponent.regionMaxX,
+                grabComponent.regionMaxY,
+                panelWidth,
+                panelHeight
+            )
+            isInRegion = localHitPoint.x >= minX &&
                          localHitPoint.x <= maxX &&
                          localHitPoint.y >= minY &&
                          localHitPoint.y <= maxY
+        }
 
         grabComponent.recycle()
         return isInRegion
@@ -170,6 +206,7 @@ class MetaGrabbableSystem() : SystemBase() {
     /**
      * Draws the grab region as a debug rectangle on the panel.
      * The rectangle is drawn slightly in front of the panel to be visible.
+     * Supports both regular rectangular regions and border mode.
      */
     private fun drawDebugGrabRegion(entity: Entity) {
         val grabComponent = entity.tryGetComponent<GrabComponent>() ?: return
@@ -188,44 +225,86 @@ class MetaGrabbableSystem() : SystemBase() {
             }
         }
 
-        // Convert normalized region bounds to local coordinates
-        val (minX, minY) = normalizedToLocal(
-            grabComponent.regionMinX,
-            grabComponent.regionMinY,
-            panelWidth,
-            panelHeight
-        )
-        val (maxX, maxY) = normalizedToLocal(
-            grabComponent.regionMaxX,
-            grabComponent.regionMaxY,
-            panelWidth,
-            panelHeight
-        )
-
         // Offset slightly in front of the panel (along negative Z in panel local space)
         val zOffset = -0.001f
+        val color = Color.valueOf(debugDrawColor)
 
-        // Define the four corners in local space
+        if (grabComponent.isBorderMode) {
+            // Draw border mode - four separate rectangles for each edge
+            val leftBorder = grabComponent.regionMinX
+            val rightBorder = grabComponent.regionMaxX
+            val bottomBorder = grabComponent.regionMinY
+            val topBorder = grabComponent.regionMaxY
+
+            val leftEdge = -panelWidth / 2f
+            val rightEdge = panelWidth / 2f
+            val bottomEdge = -panelHeight / 2f
+            val topEdge = panelHeight / 2f
+
+            val leftBorderLocal = leftEdge + (leftBorder * panelWidth)
+            val rightBorderLocal = rightEdge - (rightBorder * panelWidth)
+            val bottomBorderLocal = bottomEdge + (bottomBorder * panelHeight)
+            val topBorderLocal = topEdge - (topBorder * panelHeight)
+
+            // Draw left border strip
+            drawRectangle(entityTransform, leftEdge, bottomEdge, leftBorderLocal, topEdge, zOffset, color)
+
+            // Draw right border strip
+            drawRectangle(entityTransform, rightBorderLocal, bottomEdge, rightEdge, topEdge, zOffset, color)
+
+            // Draw bottom border strip (between left and right borders)
+            drawRectangle(entityTransform, leftBorderLocal, bottomEdge, rightBorderLocal, bottomBorderLocal, zOffset, color)
+
+            // Draw top border strip (between left and right borders)
+            drawRectangle(entityTransform, leftBorderLocal, topBorderLocal, rightBorderLocal, topEdge, zOffset, color)
+
+        } else {
+            // Standard rectangular region mode
+            val (minX, minY) = normalizedToLocal(
+                grabComponent.regionMinX,
+                grabComponent.regionMinY,
+                panelWidth,
+                panelHeight
+            )
+            val (maxX, maxY) = normalizedToLocal(
+                grabComponent.regionMaxX,
+                grabComponent.regionMaxY,
+                panelWidth,
+                panelHeight
+            )
+
+            drawRectangle(entityTransform, minX, minY, maxX, maxY, zOffset, color)
+        }
+
+        grabComponent.recycle()
+    }
+
+    /**
+     * Helper function to draw a rectangle outline in world space.
+     */
+    private fun drawRectangle(
+        entityTransform: Pose,
+        minX: Float,
+        minY: Float,
+        maxX: Float,
+        maxY: Float,
+        zOffset: Float,
+        color: Color
+    ) {
         val bottomLeft = Vector3(minX, minY, zOffset)
         val bottomRight = Vector3(maxX, minY, zOffset)
         val topRight = Vector3(maxX, maxY, zOffset)
         val topLeft = Vector3(minX, maxY, zOffset)
 
-        // Transform corners to world space
         val worldBottomLeft = entityTransform * bottomLeft
         val worldBottomRight = entityTransform * bottomRight
         val worldTopRight = entityTransform * topRight
         val worldTopLeft = entityTransform * topLeft
 
-        val color = Color.valueOf(debugDrawColor)
-
-        // Draw the rectangle outline
         getScene().drawDebugLine(worldBottomLeft, worldBottomRight, color, 1)
         getScene().drawDebugLine(worldBottomRight, worldTopRight, color, 1)
         getScene().drawDebugLine(worldTopRight, worldTopLeft, color, 1)
         getScene().drawDebugLine(worldTopLeft, worldBottomLeft, color, 1)
-
-        grabComponent.recycle()
     }
 
     /**
