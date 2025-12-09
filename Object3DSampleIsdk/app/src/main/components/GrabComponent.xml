@@ -4,13 +4,67 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="https://developers.meta.com/horizon/spatial-sdk/0.9.1/ComponentSchema.xsd"
 >
+    <Enum
+        name="GrabbableType"
+        description="GrabbableType is an enum that defines the type of behavior an object has when grabbed. "
+    >
+        <EnumValue
+            value="FACE"
+            description="The object faces the user when grabbed."
+        />
+        <EnumValue
+            value="PIVOT_Y"
+            description="The object rotates around the Y axis to face the user (will not look up or down)."
+        />
+    </Enum>
     <Component
         name="GrabComponent"
-        description="A Component that makes an object act like a button."
+        description="A component that makes an entity grabbable within a defined region using normalized coordinates (0-1)."
     >
-<!--        <StringAttribute name="eventName" defaultValue="trigger" />-->
-<!--        <BooleanAttribute name="isDown" defaultValue="false" />-->
-<!--        <Vector3Attribute name="downOffset" defaultValue="0.0f, -0.012f, 0.0f" />-->
-<!--        <Vector3Attribute name="startPosition" defaultValue="0.0f, 0.0f, 0.0f" />-->
+        <BooleanAttribute
+            name="enabled"
+            defaultValue="true"
+            description="Defines whether the object can be grabbed or not."
+        />
+        <EnumAttribute
+            name="type"
+            defaultValue="GrabbableType.FACE"
+            description="The type of behavior an object has when grabbed (faces user, pivots on y axis, etc.)"
+        />
+        <BooleanAttribute
+            name="isGrabbed"
+            defaultValue="false"
+            description="Whether the object is currently grabbed or not"
+            hideInEditor="true"
+        />
+        <FloatAttribute
+            name="minHeight"
+            defaultValue="-Float.MAX_VALUE"
+            description="the minimum height an object can be held when grabbed"
+        />
+        <FloatAttribute
+            name="maxHeight"
+            defaultValue="Float.MAX_VALUE"
+            description="the maximum height an object can be held when grabbed"
+        />
+        <!-- Grab region bounds in normalized coordinates (0-1) -->
+        <!-- (0,0) = bottom-left, (1,1) = top-right of the panel -->
+        <!-- Default covers the entire panel -->
+        <FloatAttribute
+            name="regionMinX"
+            defaultValue="0.0f"
+        />
+        <FloatAttribute
+            name="regionMaxX"
+            defaultValue="1.0f"
+        />
+        <FloatAttribute
+            name="regionMinY"
+            defaultValue="0.0f"
+        />
+        <FloatAttribute
+            name="regionMaxY"
+            defaultValue="1.0f"
+        />
     </Component>
 </ComponentSchema>

@@ -14,10 +14,12 @@ import com.meta.spatial.core.Pose
 import com.meta.spatial.core.Quaternion
 import com.meta.spatial.core.Query
 import com.meta.spatial.core.SystemBase
+import com.meta.spatial.core.Vector2
 import com.meta.spatial.core.Vector3
 import com.meta.spatial.runtime.ButtonBits
 import com.meta.spatial.runtime.HitInfo
 import com.meta.spatial.runtime.InputListener
+import com.meta.spatial.runtime.PanelDimensionsOverrides
 import com.meta.spatial.runtime.PanelSceneObject
 import com.meta.spatial.runtime.SceneObject
 import com.meta.spatial.toolkit.Controller
@@ -26,83 +28,6 @@ import com.meta.spatial.toolkit.SceneObjectSystem
 import com.meta.spatial.toolkit.Transform
 import com.meta.spatial.toolkit.TransformParent
 import com.meta.spatial.toolkit.getAbsoluteTransform
-
-/**
- * Defines a rectangular grab region on a panel in local space.
- * Coordinates are relative to the panel's local space, where:
- * - (0, 0) is typically the center of the panel
- * - x extends horizontally, y extends vertically
- *
- * @property minX The minimum x coordinate of the grab region
- * @property maxX The maximum x coordinate of the grab region
- * @property minY The minimum y coordinate of the grab region
- * @property maxY The maximum y coordinate of the grab region
- */
-data class GrabRegion(
-    val minX: Float,
-    val maxX: Float,
-    val minY: Float,
-    val maxY: Float
-) {
-    companion object {
-        /**
-         * Creates a grab region at the top of a panel.
-         * Useful for a "title bar" style grab handle.
-         *
-         * @param panelWidth The total width of the panel in meters
-         * @param panelHeight The total height of the panel in meters
-         * @param handleHeight The height of the grab handle area in meters
-         */
-        fun topHandle(panelWidth: Float, panelHeight: Float, handleHeight: Float = 0.05f): GrabRegion {
-            val halfWidth = panelWidth / 2f
-            val halfHeight = panelHeight / 2f
-            return GrabRegion(
-                minX = -halfWidth,
-                maxX = halfWidth,
-                minY = halfHeight - handleHeight,
-                maxY = halfHeight
-            )
-        }
-
-        /**
-         * Creates a grab region at the bottom of a panel.
-         */
-        fun bottomHandle(panelWidth: Float, panelHeight: Float, handleHeight: Float = 0.05f): GrabRegion {
-            val halfWidth = panelWidth / 2f
-            val halfHeight = panelHeight / 2f
-            return GrabRegion(
-                minX = -halfWidth,
-                maxX = halfWidth,
-                minY = -halfHeight,
-                maxY = -halfHeight + handleHeight
-            )
-        }
-
-        /**
-         * Creates a grab region as edges around the entire panel.
-         */
-        fun edges(panelWidth: Float, panelHeight: Float, edgeWidth: Float = 0.02f): GrabRegion {
-            // Note: This creates a single region, for full edges you'd want multiple regions
-            // or a different containment check
-            val halfWidth = panelWidth / 2f
-            val halfHeight = panelHeight / 2f
-            return GrabRegion(
-                minX = -halfWidth,
-                maxX = halfWidth,
-                minY = halfHeight - edgeWidth,
-                maxY = halfHeight
-            )
-        }
-    }
-
-    /**
-     * Checks if a local point is within this grab region.
-     */
-    fun contains(localPoint: Vector3): Boolean {
-        return localPoint.x >= minX && localPoint.x <= maxX &&
-               localPoint.y >= minY && localPoint.y <= maxY
-    }
-}
 
 /**
  * Holds information about an active grab operation.
@@ -127,10 +52,11 @@ private data class HoverInfo(
 )
 
 /**
- * A custom grab system that allows grabbing panels only from pre-specified regions.
+ * A custom grab system that allows grabbing panels only from regions defined in their GrabComponent.
  *
  * Features:
- * - Region-based grabbing: Only allows grabbing when the hit point is within a defined region
+ * - Region-based grabbing: Only allows grabbing when the hit point is within the region
+ *   defined in the entity's [GrabComponent] (regionMinX, regionMaxX, regionMinY, regionMaxY)
  * - Other areas remain interactive: Buttons and other UI elements outside the grab region
  *   can still be clicked/interacted with without initiating a grab
  * - Hover animations: Panels expand when hovered over the grab region and shrink when the
@@ -139,7 +65,9 @@ private data class HoverInfo(
  *
  * Usage:
  * 1. Add this system to your systemManager
- * 2. Register grab regions for entities using [registerGrabRegion]
+ * 2. Configure the grab region directly on the [GrabComponent]:
+ *    - regionMinX, regionMaxX: horizontal bounds in local coordinates
+ *    - regionMinY, regionMaxY: vertical bounds in local coordinates
  * 3. Entities must have both [GrabComponent] and [Panel] components
  */
 class MyGrabSystem : SystemBase() {
@@ -169,55 +97,94 @@ class MyGrabSystem : SystemBase() {
     private var lastTime = System.currentTimeMillis()
     private val grabbingInfo = HashMap<Long, GrabInfo>()
     private val entitiesWithListener = HashSet<Entity>()
-    private val entityGrabRegions = HashMap<Long, GrabRegion>()
     private val hoverStates = HashMap<Long, HoverInfo>()
     private val originalScales = HashMap<Long, Vector3>()
-
-    /**
-     * Registers a grab region for an entity.
-     * The entity must have both [GrabComponent] and [Panel] components.
-     *
-     * @param entity The entity to register
-     * @param region The grab region in local panel coordinates
-     */
-    fun registerGrabRegion(entity: Entity, region: GrabRegion) {
-        entityGrabRegions[entity.id] = region
-    }
-
-    /**
-     * Unregisters a grab region for an entity.
-     */
-    fun unregisterGrabRegion(entity: Entity) {
-        entityGrabRegions.remove(entity.id)
-    }
-
-    /**
-     * Gets the grab region for an entity, if registered.
-     */
-    fun getGrabRegion(entity: Entity): GrabRegion? {
-        return entityGrabRegions[entity.id]
-    }
 
     private fun getHeadPose(): Pose {
         return getScene().getViewerPose()
     }
 
     /**
-     * Converts a world-space hit point to local panel coordinates.
+     * Converts a world-space point to local panel coordinates.
      */
     private fun worldToLocal(hitPoint: Vector3, entityTransform: Pose): Vector3 {
         return entityTransform.inverse() * hitPoint
     }
 
     /**
-     * Checks if a hit point is within the grab region for an entity.
+     * Converts normalized coordinates (0-1) to local panel coordinates.
+     *
+     * @param normalizedX The normalized X coordinate (0 = left, 1 = right)
+     * @param normalizedY The normalized Y coordinate (0 = bottom, 1 = top)
+     * @param panelWidth The panel width in meters
+     * @param panelHeight The panel height in meters
+     * @return The local coordinate with (0,0) at center
      */
-    private fun isHitInGrabRegion(hitInfo: HitInfo, entity: Entity): Boolean {
-        val region = entityGrabRegions[entity.id] ?: return true // If no region defined, allow grab anywhere
+    private fun normalizedToLocal(
+        normalizedX: Float,
+        normalizedY: Float,
+        panelWidth: Float,
+        panelHeight: Float
+    ): Pair<Float, Float> {
+        // Convert from (0,0)=bottom-left, (1,1)=top-right to centered coordinates
+        val localX = (normalizedX - 0.5f) * panelWidth
+        val localY = (normalizedY - 0.5f) * panelHeight
+        return Pair(localX, localY)
+    }
+
+    /**
+     * Gets the panel dimensions from the PanelSceneObject's config.
+     * Returns null if dimensions cannot be determined.
+     */
+    private fun getPanelDimensions(entity: Entity, sceneObject: SceneObject?): Pair<Float, Float>? {
+        if (sceneObject is PanelSceneObject) {
+            val dimensions: Vector2? = PanelDimensionsOverrides.get(entity)
+            if (dimensions != null) {
+                return Pair(dimensions.x, dimensions.y)
+            }
+            return Pair(1f, 1f)
+        }
+        return null
+    }
+
+    /**
+     * Checks if a hit point is within the grab region defined in the entity's GrabComponent.
+     * The GrabComponent uses normalized coordinates (0-1) which are converted to local space.
+     */
+    private fun isHitInGrabRegion(hitInfo: HitInfo, entity: Entity, sceneObject: SceneObject?): Boolean {
+        val grabComponent = entity.tryGetComponent<GrabComponent>() ?: return true
         val entityTransform = getAbsoluteTransform(entity)
         val localHitPoint = worldToLocal(hitInfo.point, entityTransform)
 
-        return region.contains(localHitPoint)
+        // Get panel dimensions for coordinate conversion
+        val dimensions = getPanelDimensions(entity, sceneObject)
+        if (dimensions == null) {
+            grabComponent.recycle()
+            return true // Can't determine dimensions, allow grab
+        }
+
+        val (panelWidth, panelHeight) = dimensions
+
+        // Convert normalized region bounds to local coordinates
+        val (minX, minY) = normalizedToLocal(
+            grabComponent.regionMinX,
+            grabComponent.regionMinY,
+            panelWidth,
+            panelHeight
+        )
+        val (maxX, maxY) = normalizedToLocal(
+            grabComponent.regionMaxX,
+            grabComponent.regionMaxY,
+            panelWidth,
+            panelHeight
+        )
+        val isInRegion = localHitPoint.x >= minX &&
+                         localHitPoint.x <= maxX &&
+                         localHitPoint.y >= minY &&
+                         localHitPoint.y <= maxY
+
+        grabComponent.recycle()
+        return isInRegion
     }
 
     /**
@@ -264,8 +231,8 @@ class MyGrabSystem : SystemBase() {
     /**
      * Handles hover enter - expands the grab region visually.
      */
-    private fun onHoverEnter(entity: Entity, hitInfo: HitInfo) {
-        if (!isHitInGrabRegion(hitInfo, entity)) return
+    private fun onHoverEnter(entity: Entity, hitInfo: HitInfo, sceneObject: SceneObject?) {
+        if (!isHitInGrabRegion(hitInfo, entity, sceneObject)) return
 
         val hoverInfo = hoverStates[entity.id]
         if (hoverInfo != null && hoverInfo.isHovered) return // Already hovered
@@ -291,7 +258,6 @@ class MyGrabSystem : SystemBase() {
             currentScale = currentScale,
             targetScale = expandedScale
         )
-
         animateScale(entity, currentScale, expandedScale)
     }
 
@@ -366,11 +332,11 @@ class MyGrabSystem : SystemBase() {
                         val receiverEntity = receiver.entity ?: return false
 
                         // Check if hit is in grab region for hover state
-                        val isInGrabRegion = isHitInGrabRegion(hitInfo, receiverEntity)
+                        val isInGrabRegion = isHitInGrabRegion(hitInfo, receiverEntity, receiver)
 
                         // Handle hover state transitions
                         if (isInGrabRegion && !lastHoverInRegion) {
-                            onHoverEnter(receiverEntity, hitInfo)
+                            onHoverEnter(receiverEntity, hitInfo, receiver)
                         } else if (!isInGrabRegion && lastHoverInRegion) {
                             onHoverExit(receiverEntity)
                         }
@@ -390,7 +356,7 @@ class MyGrabSystem : SystemBase() {
                             }
 
                             // CRITICAL: Check if hit is in the grab region
-                            if (!isHitInGrabRegion(hitInfo, receiverEntity)) {
+                            if (!isHitInGrabRegion(hitInfo, receiverEntity, receiver)) {
                                 // Not in grab region - allow click-through for buttons etc.
                                 return false
                             }
@@ -509,7 +475,6 @@ class MyGrabSystem : SystemBase() {
 
     override fun delete(entity: Entity) {
         entitiesWithListener.remove(entity)
-        entityGrabRegions.remove(entity.id)
         hoverStates.remove(entity.id)
         originalScales.remove(entity.id)
 

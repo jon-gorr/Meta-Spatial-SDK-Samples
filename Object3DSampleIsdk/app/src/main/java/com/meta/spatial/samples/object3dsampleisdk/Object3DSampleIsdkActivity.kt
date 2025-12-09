@@ -41,7 +41,9 @@ import com.meta.spatial.toolkit.LayoutXMLPanelRegistration
 import com.meta.spatial.toolkit.Material
 import com.meta.spatial.toolkit.Mesh
 import com.meta.spatial.toolkit.MeshCollision
+import com.meta.spatial.toolkit.MetaGrabbableSystem
 import com.meta.spatial.toolkit.Panel
+import com.meta.spatial.toolkit.PanelDimensions
 import com.meta.spatial.toolkit.PanelRegistration
 import com.meta.spatial.toolkit.PanelStyleOptions
 import com.meta.spatial.toolkit.QuadShapeOptions
@@ -53,13 +55,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-
-// Panel dimensions for the scroll panel (used for grab region calculation)
-private const val SCROLL_PANEL_WIDTH = 0.3375f
-private const val SCROLL_PANEL_HEIGHT = 0.6f
-
-// Height of the grabbable region at the top of the panel (like a title bar)
-private const val GRAB_HANDLE_HEIGHT = 0.06f
 
 class Object3DSampleIsdkActivity : AppSystemActivity() {
 
@@ -98,7 +93,8 @@ class Object3DSampleIsdkActivity : AppSystemActivity() {
 
         // Register our custom grab system that supports region-based grabbing
         // This must be done before loading any entities that use it
-        systemManager.registerSystem(MyGrabSystem())
+        //systemManager.registerSystem(MyGrabSystem())
+        systemManager.registerSystem(MetaGrabbableSystem())
         componentManager.registerComponent<GrabComponent>(GrabComponent.Companion)
 
         loadGLXF { composition ->
@@ -243,37 +239,72 @@ class Object3DSampleIsdkActivity : AppSystemActivity() {
         // Create a panel with region-based grabbing
         // The panel can only be grabbed from the top "title bar" region
         // Other areas (like buttons) will still be clickable without triggering grab
-        val scrollPanel = Entity.create(
+        val leftPanel = Entity.create(
             listOf(
+                PanelDimensions(panel1Dimensions),
+                Panel(R.id.scroll_panel),
+                Transform(Pose(Vector3(x = -.5f, y = 1f, z = 1f))),
+                GrabRegion.left(0.1f).toGrabComponent()
+            )
+        )
+
+        val rightPanel = Entity.create(
+            listOf(
+                PanelDimensions(panel2Dimensions),
                 Panel(R.id.scroll_panel),
                 Transform(Pose(Vector3(x = 0f, y = 1f, z = 1f))),
-                GrabComponent()
+                GrabRegion.right(0.1f).toGrabComponent()
             )
         )
 
-        // Register the grab region with MyGrabSystem
-        // This creates a "title bar" style grab handle at the top of the panel
-        val myGrabSystem = systemManager.tryFindSystem<MyGrabSystem>()
-        myGrabSystem?.registerGrabRegion(
-            scrollPanel,
-            GrabRegion.topHandle(
-                panelWidth = SCROLL_PANEL_WIDTH,
-                panelHeight = SCROLL_PANEL_HEIGHT,
-                handleHeight = GRAB_HANDLE_HEIGHT
+        val topPanel = Entity.create(
+            listOf(
+                PanelDimensions(panel2Dimensions),
+                Panel(R.id.scroll_panel),
+                Transform(Pose(Vector3(x = .5f, y = 1f, z = 1f))),
+                GrabRegion.top(0.1f).toGrabComponent().apply {
+                    enabled = true
+                }
             )
         )
 
-        // Optionally configure the grab system
-        myGrabSystem?.apply {
-            // Customize hover animation scale (5% larger when hovered)
-            hoverScaleMultiplier = 1.05f
-            // Customize animation duration
-            hoverAnimationDurationMs = 200L
-        }
+        val bottomPanel = Entity.create(
+            listOf(
+                PanelDimensions(panel2Dimensions),
+                Panel(R.id.scroll_panel),
+                Transform(Pose(Vector3(x = 1f, y = 1f, z = 1f))),
+                GrabRegion.bottom(0.1f).toGrabComponent()
+            )
+        )
+
+        //TODO: this doesn't appear to work as intended
+        val borderPanel = Entity.create(
+            listOf(
+                PanelDimensions(panel2Dimensions),
+                Panel(R.id.scroll_panel),
+                Transform(Pose(Vector3(x = 0f, y = 2f, z = 1f))),
+                GrabRegion.border(0.01f).toGrabComponent()
+            )
+        )
+
+        // TODO: re-enable?
+        //  Optionally configure the grab system
+//        val myGrabSystem = systemManager.tryFindSystem<MyGrabSystem>()
+//        myGrabSystem?.apply {
+//            // Customize hover animation scale (5% larger when hovered)
+//            hoverScaleMultiplier = 1.05f
+//            // Customize animation duration
+//            hoverAnimationDurationMs = 200L
+//        }
 
         // uncomment to see the physics debug lines
         spatial.enablePhysicsDebugLines(true)
     }
+
+    val panel1Dimensions: Vector2 = Vector2(0.3375f, 0.6f)
+    val panel2Dimensions: Vector2 = Vector2(0.3375f, 0.6f)
+
+
 
     override fun registerPanels(): List<PanelRegistration> {
         return listOf(
